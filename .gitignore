@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+config/apps.yaml
+*.pem
+*.key
+
+# Node / dashboard
+node_modules/
+dashboard/dist/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
