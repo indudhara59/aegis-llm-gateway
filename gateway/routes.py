@@ -15,7 +15,13 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from gateway import __version__
 from gateway.dependencies import AuthenticatedApp, ServicesDep
 from gateway.errors import GatewayError
-from gateway.schemas import ChatCompletionChunk, ChatCompletionRequest
+from gateway.schemas import (
+    ChatCompletionChunk,
+    ChatCompletionRequest,
+    PiiEntity,
+    PiiPreviewRequest,
+    PiiPreviewResponse,
+)
 
 logger = logging.getLogger("gateway.chat")
 
@@ -58,20 +64,26 @@ async def chat_completions(
     app: AuthenticatedApp,
     services: ServicesDep,
 ) -> Response:
-    model = services.chat.resolve_model(app, body.model)
+    prepared = services.chat.prepare(app, body)
     log_fields: dict[str, Any] = {
         "request_id": _request_id(request),
         "app_id": app.id,
         "provider": services.chat.provider_name,
-        "model": model,
+        "model": prepared.model,
         "stream": body.stream,
         "messages": len(body.messages),
+        "pii_masked": prepared.pii_total,
+        "pii_entities": prepared.pii_entities,
     }
-    headers = {"X-Aegis-Provider": services.chat.provider_name, "X-Aegis-Model": model}
+    headers = {
+        "X-Aegis-Provider": services.chat.provider_name,
+        "X-Aegis-Model": prepared.model,
+        "X-Aegis-PII-Masked": str(prepared.pii_total),
+    }
     started = time.perf_counter()
 
     if not body.stream:
-        completion = await services.chat.complete(body, model)
+        completion = await services.chat.complete(prepared)
         usage = completion.usage
         log_fields.update(
             upstream_ms=_elapsed_ms(started),
@@ -81,7 +93,7 @@ async def chat_completions(
         logger.info("chat.completed", extra={"fields": log_fields})
         return JSONResponse(completion.model_dump(mode="json"), headers=headers)
 
-    stream = services.chat.stream(body, model)
+    stream = services.chat.stream(prepared)
     # Pull the first chunk before answering so that upstream failures (rate limits, rejected
     # requests) are returned with a proper HTTP status instead of inside a 200 event stream.
     try:
@@ -97,6 +109,39 @@ async def chat_completions(
         _sse_events(first, stream, on_finish),
         media_type="text/event-stream",
         headers={**headers, "Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/v1/aegis/pii/preview", tags=["aegis"])
+async def pii_preview(
+    body: PiiPreviewRequest, app: AuthenticatedApp, services: ServicesDep
+) -> PiiPreviewResponse:
+    """Show what the PII guard would send upstream for ``text``.
+
+    Returns the masked text and the detected spans. Original values are not echoed back.
+    """
+    guard = services.chat.pii_guard
+    if guard is None:
+        return PiiPreviewResponse(enabled=False, masked_text=body.text, entities=[])
+    masked = guard.mask_text(body.text, guard.new_vault())
+    logger.info(
+        "pii.preview",
+        extra={"fields": {"app_id": app.id, "entities": len(masked.spans)}},
+    )
+    return PiiPreviewResponse(
+        enabled=True,
+        masked_text=masked.text,
+        entities=[
+            PiiEntity(
+                type=span.detection.entity_type,
+                start=span.detection.start,
+                end=span.detection.end,
+                score=round(span.detection.score, 3),
+                recognizer=span.detection.recognizer,
+                token=span.token,
+            )
+            for span in masked.spans
+        ],
     )
 
 

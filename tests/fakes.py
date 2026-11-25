@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from gateway.errors import GatewayError
+from gateway.pii.guard import PII_MODEL_INSTRUCTION
+from gateway.providers.mock import MockProvider
 from gateway.schemas import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -58,3 +60,52 @@ class EmptyStreamProvider(FailingProvider):
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         return
         yield  # pragma: no cover - makes this function an async generator
+
+
+class RecordingProvider(MockProvider):
+    """Mock provider that records what it received and streams its reply one character at a time.
+
+    Character streaming splits every PII token across many chunks, which exercises the streaming
+    unmasker.
+    """
+
+    def __init__(self, extra_message: dict[str, object] | None = None) -> None:
+        self.requests: list[ChatCompletionRequest] = []
+        self.extra_message = extra_message
+
+    async def complete(self, request: ChatCompletionRequest, model: str) -> ChatCompletion:
+        self.requests.append(request)
+        completion = await super().complete(request, model)
+        if self.extra_message:
+            message = completion.choices[0].message.model_copy(update=self.extra_message)
+            choice = completion.choices[0].model_copy(update={"message": message})
+            completion = completion.model_copy(update={"choices": [choice]})
+        return completion
+
+    async def stream(
+        self, request: ChatCompletionRequest, model: str
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        self.requests.append(request)
+        reply = self.reply_for(request)
+        yield ChatCompletionChunk(
+            id="chatcmpl-rec",
+            created=0,
+            model=model,
+            choices=[ChunkChoice(index=0, delta=ChunkDelta(role="assistant", content=""))],
+        )
+        for char in reply:
+            yield make_chunk(char)
+        yield ChatCompletionChunk(
+            id="chatcmpl-rec",
+            created=0,
+            model=model,
+            choices=[ChunkChoice(index=0, delta=ChunkDelta(), finish_reason="stop")],
+        )
+
+    def upstream_text(self) -> str:
+        """Text of the last upstream request, without the gateway's placeholder instruction."""
+        return "\n".join(
+            message.text()
+            for message in self.requests[-1].messages
+            if message.text() != PII_MODEL_INSTRUCTION
+        )

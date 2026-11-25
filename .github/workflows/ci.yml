@@ -33,6 +33,25 @@ jobs:
       - name: Pytest
         run: pytest
 
+  ner:
+    name: Optional NER recognizer (Presidio + spaCy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install with NER extra
+        run: |
+          pip install -e ".[dev,ner]"
+          python -m spacy download en_core_web_sm
+          python -m spacy download de_core_news_sm
+      - name: Mypy with optional dependencies
+        run: mypy
+      - name: NER tests
+        run: pytest tests/test_pii_ner.py tests/test_pii_guard.py --no-cov
+
   docker:
     name: Docker image smoke test
     runs-on: ubuntu-latest
@@ -53,6 +72,10 @@ jobs:
             -H "Authorization: Bearer aegis_local_demo_key_do_not_use_in_production" \
             -H "Content-Type: application/json" \
             -d '{"messages":[{"role":"user","content":"ping"}]}'
+          curl -fsS http://127.0.0.1:8000/v1/aegis/pii/preview \
+            -H "Authorization: Bearer aegis_local_demo_key_do_not_use_in_production" \
+            -H "Content-Type: application/json" \
+            -d '{"text":"IBAN DE89 3704 0044 0532 0130 00"}' | grep -q '"IBAN"'
       - name: Container logs
         if: always()
         run: docker logs aegis

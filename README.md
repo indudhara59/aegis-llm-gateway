@@ -20,7 +20,7 @@ App / User ──► [ Aegis gateway ] ──► LLM provider (Groq, ...)
 | Stage | Scope | State |
 |---|---|---|
 | 1 | OpenAI-compatible proxy, app API keys, streaming, logging, Docker, CI | done |
-| 2 | PII detection and HMAC pseudonymization (German identifiers) | planned |
+| 2 | PII detection and HMAC pseudonymization (German identifiers) | done |
 | 3 | Format-preserving encryption (FF1, NIST SP 800-38G) | planned |
 | 4 | Prompt-injection input guard | planned |
 | 5 | Policy engine | planned |
@@ -71,6 +71,9 @@ set `AEGIS_PROVIDER=groq` and `AEGIS_GROQ_API_KEY` in `.env`.
 | `AEGIS_DEFAULT_MODEL` | `llama-3.1-8b-instant` | Model used when a request names none |
 | `AEGIS_APPS_FILE` | `config/apps.yaml` | Applications and their API key hashes |
 | `AEGIS_APPS_YAML` | | Inline YAML alternative to the file (for hosting platforms) |
+| `AEGIS_PII_MODE` | `mask` | Pseudonymize personal data (`mask`) or pass it through (`off`) |
+| `AEGIS_PII_SECRET` | | HMAC secret for PII tokens, required in production (`aegis-secret`) |
+| `AEGIS_PII_NER_ENABLED` | `false` | Add Presidio/spaCy name and place recognition |
 | `AEGIS_MAX_REQUEST_BYTES` | `256000` | Maximum request body size |
 | `AEGIS_CORS_ORIGINS` | `[]` | JSON list of allowed browser origins |
 | `AEGIS_LOG_LEVEL` | `INFO` | Log level |
@@ -86,12 +89,36 @@ aegis-keygen hr-chatbot --name "HR chatbot"
 Paste the printed entry into your apps file. `allowed_models` restricts which models the app can
 use (empty means all).
 
+## PII guard
+
+Personal data is replaced by keyed tokens before a request leaves the gateway and restored in the
+answer, including streamed answers:
+
+```
+You:       "Mein Name ist Max Müller, IBAN DE89 3704 0044 0532 0130 00"
+Provider:  "Mein Name ist <PERSON_1b22ffbb>, IBAN <IBAN_55e8a87c>"
+```
+
+It recognizes e-mail addresses, phone numbers, IBANs, card numbers, IP addresses, street addresses,
+names in context and German identifiers (Steuer-ID, Sozialversicherungsnummer), validating checksums
+to avoid false positives. See [docs/pii.md](docs/pii.md) for the design.
+
+Try the detector without calling a model:
+
+```bash
+curl http://127.0.0.1:8000/v1/aegis/pii/preview \
+  -H "Authorization: Bearer aegis_local_demo_key_do_not_use_in_production" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Herr Max Müller, Steuer-ID 86095742719, Tel. 0521 1234567"}'
+```
+
 ## API
 
 | Endpoint | Description |
 |---|---|
 | `POST /v1/chat/completions` | OpenAI-compatible chat completions, including `stream: true` |
 | `GET /v1/models` | Models available to the calling application |
+| `POST /v1/aegis/pii/preview` | Show how the PII guard masks a text |
 | `GET /healthz` | Liveness probe |
 | `GET /readyz` | Readiness probe |
 | `GET /docs` | Interactive OpenAPI documentation |

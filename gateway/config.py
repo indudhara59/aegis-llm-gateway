@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     groq_base_url: str = "https://api.groq.com/openai/v1"
     upstream_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
 
+    # PII guard. ``mask`` replaces personal data with keyed tokens before requests leave the
+    # gateway and restores the originals in responses.
+    pii_mode: Literal["off", "mask"] = "mask"
+    pii_secret: SecretStr | None = None
+    pii_entities: list[str] = Field(default_factory=list)
+    pii_min_score: float = Field(default=0.5, ge=0, le=1)
+    pii_ner_enabled: bool = False
+    pii_model_instruction: bool = True
+
     # HTTP hardening.
     max_request_bytes: int = Field(default=256_000, gt=0)
     cors_origins: list[str] = Field(default_factory=list)

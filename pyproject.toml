@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2.7,<3.0",
     "pydantic-settings>=2.3,<3.0",
     "pyyaml>=6.0",
+    "cryptography>=43.0",
 ]
 
 [project.optional-dependencies]
@@ -29,8 +30,14 @@ dev = [
     "types-PyYAML>=6.0",
 ]
 
+ner = [
+    "presidio-analyzer>=2.2.355",
+    "spacy>=3.7,<4.0",
+]
+
 [project.scripts]
 aegis-keygen = "gateway.cli:keygen"
+aegis-secret = "gateway.cli:secret"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gateway"]
@@ -51,6 +58,10 @@ strict = true
 plugins = ["pydantic.mypy"]
 files = ["gateway"]
 
+[[tool.mypy.overrides]]
+module = ["presidio_analyzer", "presidio_analyzer.*"]
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
@@ -58,6 +69,7 @@ init_typed = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --cov=gateway --cov-report=term-missing"
+markers = ["ner: tests that need the optional Presidio/spaCy dependencies"]
 
 [tool.coverage.run]
 branch = true

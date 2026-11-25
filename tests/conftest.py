@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from gateway.apps import hash_api_key
 from gateway.config import Settings
@@ -12,6 +13,7 @@ from gateway.main import create_app
 
 TEST_KEY = "aegis_test_key_for_unit_tests_only"
 RESTRICTED_KEY = "aegis_restricted_key_for_unit_tests"
+PII_SECRET = "unit-test-pii-secret-with-at-least-32-chars"
 
 
 @pytest.fixture
@@ -46,6 +48,7 @@ def settings(apps_file: Path) -> Settings:
         provider="mock",
         apps_file=apps_file,
         default_model="mock-model",
+        pii_secret=SecretStr(PII_SECRET),
     )
 
 
