@@ -1,0 +1,13 @@
+# Applications allowed to call the gateway.
+#
+# Only SHA-256 hashes of API keys are stored. Generate a new key with:
+#     aegis-keygen my-app --name "My application"
+#
+# The demo key below is for local development only:
+#     aegis_local_demo_key_do_not_use_in_production
+apps:
+  - id: demo-hr-bot
+    name: Demo HR chatbot
+    key_sha256: 281218f4ea438ce0cd9bbbc7d631ac16f7febf071e7d2682193f30683cef6bde
+    # Empty list = every model of the configured provider is allowed.
+    allowed_models: []
