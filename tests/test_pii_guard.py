@@ -52,7 +52,7 @@ def test_personal_data_never_reaches_provider(
     upstream = provider.upstream_text()
     for original in ORIGINALS:
         assert original not in upstream
-    assert len(TOKEN_PATTERN.findall(upstream)) >= 3
+    assert len(TOKEN_PATTERN.findall(upstream)) == 3
     assert result["headers"]["x-aegis-pii-masked"] == "3"
 
 

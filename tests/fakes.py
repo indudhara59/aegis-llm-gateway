@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from gateway.errors import GatewayError
+from gateway.pii.guard import PII_MODEL_INSTRUCTION
 from gateway.providers.mock import MockProvider
 from gateway.schemas import (
     ChatCompletion,
@@ -102,4 +103,9 @@ class RecordingProvider(MockProvider):
         )
 
     def upstream_text(self) -> str:
-        return "\n".join(message.text() for message in self.requests[-1].messages)
+        """Text of the last upstream request, without the gateway's placeholder instruction."""
+        return "\n".join(
+            message.text()
+            for message in self.requests[-1].messages
+            if message.text() != PII_MODEL_INSTRUCTION
+        )

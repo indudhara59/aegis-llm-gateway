@@ -6,10 +6,10 @@ import pytest
 
 pytest.importorskip("presidio_analyzer")
 
-from gateway.pii import entities  # noqa: E402
-from gateway.pii.detector import PiiDetector  # noqa: E402
-from gateway.pii.ner import PresidioNerRecognizer  # noqa: E402
-from gateway.pii.recognizers import default_recognizers  # noqa: E402
+from gateway.pii import entities
+from gateway.pii.detector import PiiDetector
+from gateway.pii.ner import PresidioNerRecognizer
+from gateway.pii.recognizers import default_recognizers
 
 pytestmark = pytest.mark.ner
 
