@@ -1,6 +1,9 @@
 services:
   gateway:
-    build: .
+    build:
+      context: .
+      args:
+        INSTALL_NER: ${INSTALL_NER:-false}
     ports:
       - "8000:8000"
     environment:
@@ -9,4 +12,7 @@ services:
       AEGIS_DEFAULT_MODEL: ${AEGIS_DEFAULT_MODEL:-llama-3.1-8b-instant}
       AEGIS_APPS_FILE: config/apps.example.yaml
       AEGIS_LOG_LEVEL: ${AEGIS_LOG_LEVEL:-INFO}
+      AEGIS_PII_MODE: ${AEGIS_PII_MODE:-mask}
+      AEGIS_PII_SECRET: ${AEGIS_PII_SECRET:-}
+      AEGIS_PII_NER_ENABLED: ${AEGIS_PII_NER_ENABLED:-false}
     restart: unless-stopped

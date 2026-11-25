@@ -11,9 +11,17 @@ WORKDIR /app
 
 RUN useradd --create-home --uid 10001 aegis
 
+# Set INSTALL_NER=true to include Presidio/spaCy name recognition (adds ~600 MB to the image).
+ARG INSTALL_NER=false
+
 COPY pyproject.toml README.md ./
 COPY gateway ./gateway
-RUN pip install .
+RUN pip install . \
+    && if [ "$INSTALL_NER" = "true" ]; then \
+        pip install ".[ner]" \
+        && python -m spacy download en_core_web_sm \
+        && python -m spacy download de_core_news_sm; \
+    fi
 
 COPY config ./config
 
