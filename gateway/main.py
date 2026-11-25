@@ -21,6 +21,7 @@ from gateway.dependencies import Services
 from gateway.errors import register_exception_handlers
 from gateway.middleware import REQUEST_ID_HEADER, BodySizeLimitMiddleware, RequestContextMiddleware
 from gateway.observability import configure_logging
+from gateway.pii import build_pii_guard
 from gateway.providers import Provider, build_provider
 from gateway.routes import router
 from gateway.service import ChatService
@@ -38,8 +39,11 @@ def create_app(settings: Settings | None = None, *, provider: Provider | None = 
     configure_logging(resolved.log_level)
 
     apps = load_app_registry(resolved)
+    pii_guard = build_pii_guard(resolved)
     chat = ChatService(
-        provider if provider is not None else build_provider(resolved), resolved.default_model
+        provider if provider is not None else build_provider(resolved),
+        resolved.default_model,
+        pii_guard=pii_guard,
     )
     services = Services(settings=resolved, apps=apps, chat=chat)
 
@@ -54,6 +58,8 @@ def create_app(settings: Settings | None = None, *, provider: Provider | None = 
                     "provider": chat.provider_name,
                     "default_model": chat.default_model,
                     "apps": len(apps.apps),
+                    "pii_mode": resolved.pii_mode,
+                    "pii_ner": resolved.pii_ner_enabled,
                 }
             },
         )
@@ -80,7 +86,12 @@ def create_app(settings: Settings | None = None, *, provider: Provider | None = 
             allow_origins=resolved.cors_origins,
             allow_methods=["GET", "POST"],
             allow_headers=["Authorization", "Content-Type", REQUEST_ID_HEADER],
-            expose_headers=[REQUEST_ID_HEADER, "X-Aegis-Provider", "X-Aegis-Model"],
+            expose_headers=[
+                REQUEST_ID_HEADER,
+                "X-Aegis-Provider",
+                "X-Aegis-Model",
+                "X-Aegis-PII-Masked",
+            ],
         )
     app.add_middleware(RequestContextMiddleware)
     app.include_router(router)

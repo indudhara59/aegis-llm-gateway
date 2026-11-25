@@ -108,3 +108,24 @@ class ChatCompletionChunk(BaseModel):
     model: str
     choices: list[ChunkChoice]
     usage: Usage | None = None
+
+
+class PiiPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=20_000)
+
+
+class PiiEntity(BaseModel):
+    type: str
+    start: int
+    end: int
+    score: float
+    recognizer: str
+    token: str
+
+
+class PiiPreviewResponse(BaseModel):
+    enabled: bool
+    masked_text: str
+    entities: list[PiiEntity]

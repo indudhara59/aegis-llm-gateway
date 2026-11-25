@@ -27,3 +27,12 @@ def keygen(argv: list[str] | None = None) -> int:
     print(f"    key_sha256: {hash_api_key(api_key)}")
     print("    allowed_models: []")
     return 0
+
+
+def secret(argv: list[str] | None = None) -> int:
+    """Generate a random secret for AEGIS_PII_SECRET."""
+    argparse.ArgumentParser(
+        prog="aegis-secret", description="Generate a 384-bit secret for AEGIS_PII_SECRET."
+    ).parse_args(argv)
+    print(secrets.token_urlsafe(48))
+    return 0
