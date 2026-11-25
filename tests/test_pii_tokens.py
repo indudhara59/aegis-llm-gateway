@@ -20,9 +20,9 @@ def test_tokens_are_deterministic_and_typed() -> None:
 
 def test_tokens_depend_on_secret_and_type() -> None:
     value = "max müller"
-    assert Pseudonymizer(SECRET).token(entities.PERSON, value) != Pseudonymizer(
-        b"t" * 32
-    ).token(entities.PERSON, value)
+    first = Pseudonymizer(SECRET).token(entities.PERSON, value)
+    second = Pseudonymizer(b"t" * 32).token(entities.PERSON, value)
+    assert first != second
     pseudonymizer = Pseudonymizer(SECRET)
     assert pseudonymizer.token(entities.PERSON, value) != pseudonymizer.token(
         entities.LOCATION, value
