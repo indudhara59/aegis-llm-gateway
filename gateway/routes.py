@@ -15,7 +15,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from gateway import __version__
 from gateway.dependencies import AuthenticatedApp, ServicesDep
 from gateway.errors import GatewayError
-from gateway.service import InputBlockedError, verdict_headers
 from gateway.guards.input_guard import ScanItem
 from gateway.schemas import (
     ChatCompletionChunk,
@@ -27,6 +26,7 @@ from gateway.schemas import (
     PiiPreviewRequest,
     PiiPreviewResponse,
 )
+from gateway.service import InputBlockedError, verdict_headers
 
 logger = logging.getLogger("gateway.chat")
 security_logger = logging.getLogger("gateway.security")
