@@ -19,6 +19,7 @@ from gateway.apps import load_app_registry
 from gateway.config import Settings
 from gateway.dependencies import Services
 from gateway.errors import register_exception_handlers
+from gateway.guards.factory import build_input_guard
 from gateway.middleware import REQUEST_ID_HEADER, BodySizeLimitMiddleware, RequestContextMiddleware
 from gateway.observability import configure_logging
 from gateway.pii import build_pii_guard
@@ -39,11 +40,12 @@ def create_app(settings: Settings | None = None, *, provider: Provider | None = 
     configure_logging(resolved.log_level)
 
     apps = load_app_registry(resolved)
-    pii_guard = build_pii_guard(resolved)
+    active_provider = provider if provider is not None else build_provider(resolved)
     chat = ChatService(
-        provider if provider is not None else build_provider(resolved),
+        active_provider,
         resolved.default_model,
-        pii_guard=pii_guard,
+        pii_guard=build_pii_guard(resolved),
+        input_guard=build_input_guard(resolved, active_provider),
     )
     services = Services(settings=resolved, apps=apps, chat=chat)
 
@@ -61,6 +63,8 @@ def create_app(settings: Settings | None = None, *, provider: Provider | None = 
                     "pii_mode": resolved.pii_mode,
                     "pii_ner": resolved.pii_ner_enabled,
                     "pii_pseudonym_style": resolved.pii_pseudonym_style,
+                    "input_guard": chat.input_guard.layers if chat.input_guard else "off",
+                    "input_guard_mode": resolved.input_guard_mode,
                 }
             },
         )
@@ -92,6 +96,8 @@ def create_app(settings: Settings | None = None, *, provider: Provider | None = 
                 "X-Aegis-Provider",
                 "X-Aegis-Model",
                 "X-Aegis-PII-Masked",
+                "X-Aegis-Input-Risk",
+                "X-Aegis-Input-Verdict",
             ],
         )
     app.add_middleware(RequestContextMiddleware)

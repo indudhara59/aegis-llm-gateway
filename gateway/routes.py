@@ -15,15 +15,21 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from gateway import __version__
 from gateway.dependencies import AuthenticatedApp, ServicesDep
 from gateway.errors import GatewayError
+from gateway.service import InputBlockedError, verdict_headers
+from gateway.guards.input_guard import ScanItem
 from gateway.schemas import (
     ChatCompletionChunk,
     ChatCompletionRequest,
+    GuardFinding,
+    GuardScanRequest,
+    GuardScanResponse,
     PiiEntity,
     PiiPreviewRequest,
     PiiPreviewResponse,
 )
 
 logger = logging.getLogger("gateway.chat")
+security_logger = logging.getLogger("gateway.security")
 
 router = APIRouter()
 
@@ -64,7 +70,33 @@ async def chat_completions(
     app: AuthenticatedApp,
     services: ServicesDep,
 ) -> Response:
-    prepared = services.chat.prepare(app, body)
+    try:
+        prepared = await services.chat.prepare(app, body)
+    except InputBlockedError as exc:
+        security_logger.warning(
+            "input_guard.blocked",
+            extra={
+                "fields": {
+                    "request_id": _request_id(request),
+                    "app_id": app.id,
+                    **exc.verdict.to_dict(),
+                }
+            },
+        )
+        raise
+
+    verdict = prepared.input_verdict
+    if verdict is not None and verdict.action == "warn":
+        security_logger.warning(
+            "input_guard.flagged",
+            extra={
+                "fields": {
+                    "request_id": _request_id(request),
+                    "app_id": app.id,
+                    **verdict.to_dict(),
+                }
+            },
+        )
     log_fields: dict[str, Any] = {
         "request_id": _request_id(request),
         "app_id": app.id,
@@ -74,11 +106,15 @@ async def chat_completions(
         "messages": len(body.messages),
         "pii_masked": prepared.pii_total,
         "pii_entities": prepared.pii_entities,
+        "input_risk": verdict.risk if verdict else None,
+        "input_label": verdict.label if verdict else None,
+        "input_findings": verdict.finding_ids if verdict else [],
     }
     headers = {
         "X-Aegis-Provider": services.chat.provider_name,
         "X-Aegis-Model": prepared.model,
         "X-Aegis-PII-Masked": str(prepared.pii_total),
+        **(verdict_headers(verdict) if verdict else {}),
     }
     started = time.perf_counter()
 
@@ -142,6 +178,49 @@ async def pii_preview(
             )
             for span in masked.spans
         ],
+    )
+
+
+@router.post("/v1/aegis/guard/scan", tags=["aegis"])
+async def guard_scan(
+    body: GuardScanRequest, app: AuthenticatedApp, services: ServicesDep
+) -> GuardScanResponse:
+    """Run the input guard on ``text`` without calling a model.
+
+    ``role="tool"`` scans the text as untrusted document or tool content (indirect injection).
+    PII is masked first, exactly as in the chat pipeline.
+    """
+    guard = services.chat.input_guard
+    pii_guard = services.chat.pii_guard
+    text, pii_masked = body.text, 0
+    if pii_guard is not None:
+        masked = pii_guard.mask_text(body.text, pii_guard.new_vault())
+        text, pii_masked = masked.text, len(masked.spans)
+    if guard is None:
+        return GuardScanResponse(
+            enabled=False,
+            risk=0.0,
+            label="benign",
+            action="allow",
+            findings=[],
+            layers=[],
+            latency_ms=0.0,
+            pii_masked=pii_masked,
+        )
+    verdict = await guard.scan([ScanItem(None, body.role, text)])
+    logger.info(
+        "guard.scan",
+        extra={"fields": {"app_id": app.id, "risk": verdict.risk, "label": verdict.label}},
+    )
+    return GuardScanResponse(
+        enabled=True,
+        risk=verdict.risk,
+        label=verdict.label,
+        action=verdict.action,
+        findings=[GuardFinding(**finding.to_dict()) for finding in verdict.findings],
+        layers=list(verdict.layers),
+        latency_ms=verdict.latency_ms,
+        pii_masked=pii_masked,
     )
 
 
