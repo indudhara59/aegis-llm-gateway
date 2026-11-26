@@ -64,7 +64,8 @@ DEFAULT_RULES: tuple[Rule, ...] = (
     _rule(
         "instruction_override",
         0.95,
-        r"\b(?:ignore|disregard|forget|skip|override|bypass|neglect)\b" + _GAP
+        r"\b(?:ignore|disregard|forget|skip|override|bypass|neglect)\b"
+        + _GAP
         + r"\b(?:previous|prior|above|earlier|preceding|original|initial|system|your|all)\b"
         + _SHORT_GAP
         + r"\b(?:instructions?|prompts?|rules|directions|guidelines|directives|context)\b",
@@ -188,9 +189,7 @@ DEFAULT_RULES: tuple[Rule, ...] = (
         r"\b(?:send|post|upload|forward|transmit|exfiltrate|leak)\b"
         + _GAP
         + r"\b(?:conversation|chat history|system prompt|password|credentials|api key|secrets?"
-        r"|personal data|user data)\b"
-        + _GAP
-        + r"(?:https?://|\b[\w.+-]+@[\w-]+\.\w+)",
+        r"|personal data|user data)\b" + _GAP + r"(?:https?://|\b[\w.+-]+@[\w-]+\.\w+)",
         "Asks to send data to an external address.",
         category=OWASP_SENSITIVE_DISCLOSURE,
     ),
