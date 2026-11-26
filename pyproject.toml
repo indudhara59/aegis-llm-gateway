@@ -38,6 +38,7 @@ ner = [
 [project.scripts]
 aegis-keygen = "gateway.cli:keygen"
 aegis-secret = "gateway.cli:secret"
+aegis-fpe = "gateway.cli:fpe"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gateway"]
