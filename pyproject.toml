@@ -38,6 +38,7 @@ ner = [
 [project.scripts]
 aegis-keygen = "gateway.cli:keygen"
 aegis-secret = "gateway.cli:secret"
+aegis-fpe = "gateway.cli:fpe"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gateway"]
@@ -50,7 +51,7 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "RUF", "ASYNC", "PT"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106"]
+"tests/**" = ["S101", "S105", "S106", "S311"]
 
 [tool.mypy]
 python_version = "3.12"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from gateway.errors import GatewayError
-from gateway.pii.guard import PII_MODEL_INSTRUCTION
+from gateway.pii.guard import PII_FORMAT_INSTRUCTION, PII_MODEL_INSTRUCTION
 from gateway.providers.mock import MockProvider
 from gateway.schemas import (
     ChatCompletion,
@@ -107,5 +107,8 @@ class RecordingProvider(MockProvider):
         return "\n".join(
             message.text()
             for message in self.requests[-1].messages
-            if message.text() != PII_MODEL_INSTRUCTION
+            if not (
+                message.role == "system"
+                and message.text().startswith((PII_MODEL_INSTRUCTION, PII_FORMAT_INSTRUCTION))
+            )
         )

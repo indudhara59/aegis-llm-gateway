@@ -45,9 +45,16 @@ def iban_is_valid(value: str) -> bool:
     expected_length = IBAN_LENGTHS.get(iban[:2])
     if expected_length is not None and len(iban) != expected_length:
         return False
-    rearranged = iban[4:] + iban[:4]
-    numeric = "".join(str(int(char, 36)) for char in rearranged)
-    return int(numeric) % 97 == 1
+    return _mod97(iban[4:] + iban[:4]) == 1
+
+
+def iban_check_digits(country: str, bban: str) -> str:
+    """Compute the two IBAN check digits for a country code and BBAN."""
+    return f"{98 - _mod97(bban + country + '00'):02d}"
+
+
+def _mod97(alphanumeric: str) -> int:
+    return int("".join(str(int(char, 36)) for char in alphanumeric)) % 97
 
 
 def steuer_id_is_valid(value: str) -> bool:
@@ -61,21 +68,28 @@ def steuer_id_is_valid(value: str) -> bool:
     if len(digits) != 11 or not digits.isdigit() or digits[0] == "0":
         return False
     body = digits[:10]
+    return steuer_id_body_is_valid(body) and steuer_id_check_digit(body) == digits[10]
+
+
+def steuer_id_body_is_valid(body: str) -> bool:
+    """Structural rules for the first ten digits of a Steuer-ID."""
+    if len(body) != 10 or not body.isdigit() or body[0] == "0":
+        return False
     counts = Counter(body)
     repeated = [digit for digit, count in counts.items() if count > 1]
     if len(repeated) != 1 or counts[repeated[0]] > 3:
         return False
-    if counts[repeated[0]] == 3 and repeated[0] * 3 in body:
-        return False
+    return not (counts[repeated[0]] == 3 and repeated[0] * 3 in body)
 
+
+def steuer_id_check_digit(body: str) -> str:
+    """ISO 7064 MOD 11,10 check digit over the first ten digits."""
     product = 10
     for char in body:
         total = (int(char) + product) % 10 or 10
         product = (total * 2) % 11
     check = 11 - product
-    if check == 10:
-        check = 0
-    return check == int(digits[10])
+    return "0" if check == 10 else str(check)
 
 
 def sozialversicherungsnummer_is_valid(value: str) -> bool:
@@ -108,6 +122,15 @@ def luhn_is_valid(value: str) -> bool:
         return False
     if digits[0] not in "3456" or len(set(digits)) == 1:
         return False
+    return _luhn_sum(digits) % 10 == 0
+
+
+def luhn_check_digit(payload: str) -> str:
+    """The digit that makes ``payload + digit`` pass the Luhn check."""
+    return str((10 - _luhn_sum(payload + "0") % 10) % 10)
+
+
+def _luhn_sum(digits: str) -> int:
     total = 0
     for position, char in enumerate(reversed(digits)):
         digit = int(char)
@@ -116,7 +139,7 @@ def luhn_is_valid(value: str) -> bool:
             if digit > 9:
                 digit -= 9
         total += digit
-    return total % 10 == 0
+    return total
 
 
 def phone_is_plausible(value: str) -> bool:

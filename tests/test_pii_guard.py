@@ -13,8 +13,11 @@ from gateway.config import Settings
 from gateway.errors import ConfigurationError
 from gateway.main import create_app
 from gateway.pii import build_pii_guard
-from gateway.pii.guard import PII_MODEL_INSTRUCTION
+from gateway.pii.detector import PiiDetector
+from gateway.pii.guard import PII_FORMAT_INSTRUCTION, PII_MODEL_INSTRUCTION
 from gateway.pii.pseudonymizer import TOKEN_PATTERN
+from gateway.pii.recognizers import default_recognizers
+from gateway.pii.validators import iban_is_valid, luhn_is_valid
 from tests.fakes import RecordingProvider
 
 URL = "/v1/chat/completions"
@@ -253,3 +256,73 @@ def test_ner_without_dependencies_fails_clearly(monkeypatch: pytest.MonkeyPatch)
     settings = Settings(_env_file=None, pii_ner_enabled=True)
     with pytest.raises(ConfigurationError, match=r"aegis-llm-gateway\[ner\]"):
         build_pii_guard(settings)
+
+
+@pytest.fixture
+def format_client(settings: Settings, provider: RecordingProvider) -> Iterator[TestClient]:
+    format_settings = settings.model_copy(update={"pii_pseudonym_style": "format"})
+    with TestClient(create_app(format_settings, provider=provider)) as test_client:
+        yield test_client
+
+
+def test_format_style_sends_valid_looking_pseudonyms(
+    format_client: TestClient, provider: RecordingProvider, auth_headers: dict[str, str]
+) -> None:
+    result = _ask(format_client, auth_headers, PERSONAL_TEXT)
+
+    upstream_request = provider.requests[-1]
+    expected_instruction = f"{PII_MODEL_INSTRUCTION} {PII_FORMAT_INSTRUCTION}"
+    assert upstream_request.messages[0].content == expected_instruction
+    upstream = provider.upstream_text()
+    for original in ORIGINALS:
+        assert original not in upstream
+    found = PiiDetector(default_recognizers()).detect(upstream)
+    ibans = [upstream[d.start : d.end] for d in found if d.entity_type == "IBAN"]
+    assert len(ibans) == 1
+    assert iban_is_valid(ibans[0])
+    assert ibans[0].startswith("DE")
+    assert "<PERSON_" in upstream  # names have no structured format and keep tags
+
+    content = result["body"]["choices"][0]["message"]["content"]
+    for original in ORIGINALS:
+        assert original in content
+
+
+def test_format_style_streaming_restores_values(
+    format_client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    response = format_client.post(
+        URL,
+        json={"stream": True, "messages": [{"role": "user", "content": PERSONAL_TEXT}]},
+        headers=auth_headers,
+    )
+    events = [
+        line.removeprefix("data: ")
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
+    content = "".join(
+        json.loads(event)["choices"][0]["delta"].get("content") or "" for event in events[:-1]
+    )
+    for original in ORIGINALS:
+        assert original in content
+
+
+def test_format_only_request_uses_format_instruction(
+    format_client: TestClient, provider: RecordingProvider, auth_headers: dict[str, str]
+) -> None:
+    _ask(format_client, auth_headers, "Bitte an DE89370400440532013000 überweisen")
+    assert provider.requests[-1].messages[0].content == PII_FORMAT_INSTRUCTION
+
+
+def test_preview_shows_format_pseudonyms(
+    format_client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    body = format_client.post(
+        "/v1/aegis/pii/preview",
+        json={"text": "Karte 4111 1111 1111 1111"},
+        headers=auth_headers,
+    ).json()
+    token = body["entities"][0]["token"]
+    assert luhn_is_valid(token)
+    assert body["masked_text"] == f"Karte {token}"

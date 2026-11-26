@@ -21,7 +21,7 @@ App / User ──► [ Aegis gateway ] ──► LLM provider (Groq, ...)
 |---|---|---|
 | 1 | OpenAI-compatible proxy, app API keys, streaming, logging, Docker, CI | done |
 | 2 | PII detection and HMAC pseudonymization (German identifiers) | done |
-| 3 | Format-preserving encryption (FF1, NIST SP 800-38G) | planned |
+| 3 | Format-preserving encryption (FF1, NIST SP 800-38G) | done |
 | 4 | Prompt-injection input guard | planned |
 | 5 | Policy engine | planned |
 | 6 | Output guard | planned |
@@ -73,6 +73,7 @@ set `AEGIS_PROVIDER=groq` and `AEGIS_GROQ_API_KEY` in `.env`.
 | `AEGIS_APPS_YAML` | | Inline YAML alternative to the file (for hosting platforms) |
 | `AEGIS_PII_MODE` | `mask` | Pseudonymize personal data (`mask`) or pass it through (`off`) |
 | `AEGIS_PII_SECRET` | | HMAC secret for PII tokens, required in production (`aegis-secret`) |
+| `AEGIS_PII_PSEUDONYM_STYLE` | `tag` | `tag` placeholders or `format`-preserving pseudonyms (FF1) |
 | `AEGIS_PII_NER_ENABLED` | `false` | Add Presidio/spaCy name and place recognition |
 | `AEGIS_MAX_REQUEST_BYTES` | `256000` | Maximum request body size |
 | `AEGIS_CORS_ORIGINS` | `[]` | JSON list of allowed browser origins |
@@ -102,6 +103,17 @@ Provider:  "Mein Name ist <PERSON_1b22ffbb>, IBAN <IBAN_55e8a87c>"
 It recognizes e-mail addresses, phone numbers, IBANs, card numbers, IP addresses, street addresses,
 names in context and German identifiers (Steuer-ID, Sozialversicherungsnummer), validating checksums
 to avoid false positives. See [docs/pii.md](docs/pii.md) for the design.
+
+With `AEGIS_PII_PSEUDONYM_STYLE=format`, IBANs, card numbers, Steuer-IDs and phone numbers are instead
+replaced by valid values of the same shape, encrypted with FF1 (NIST SP 800-38G, implemented from
+the specification and verified against the NIST test vectors):
+
+```
+Original:  DE89 3704 0044 0532 0130 00   4111 1111 1111 1111
+To model:  DE04 6798 1795 9470 9294 38   4253 0558 7138 4053
+```
+
+See [docs/fpe.md](docs/fpe.md).
 
 Try the detector without calling a model:
 
