@@ -73,7 +73,7 @@ set `AEGIS_PROVIDER=groq` and `AEGIS_GROQ_API_KEY` in `.env`.
 | `AEGIS_APPS_YAML` | | Inline YAML alternative to the file (for hosting platforms) |
 | `AEGIS_PII_MODE` | `mask` | Pseudonymize personal data (`mask`) or pass it through (`off`) |
 | `AEGIS_PII_SECRET` | | HMAC secret for PII tokens, required in production (`aegis-secret`) |
-| `AEGIS_PII_TOKEN_STYLE` | `tag` | `tag` placeholders or `format`-preserving pseudonyms (FF1) |
+| `AEGIS_PII_PSEUDONYM_STYLE` | `tag` | `tag` placeholders or `format`-preserving pseudonyms (FF1) |
 | `AEGIS_PII_NER_ENABLED` | `false` | Add Presidio/spaCy name and place recognition |
 | `AEGIS_MAX_REQUEST_BYTES` | `256000` | Maximum request body size |
 | `AEGIS_CORS_ORIGINS` | `[]` | JSON list of allowed browser origins |
@@ -104,7 +104,7 @@ It recognizes e-mail addresses, phone numbers, IBANs, card numbers, IP addresses
 names in context and German identifiers (Steuer-ID, Sozialversicherungsnummer), validating checksums
 to avoid false positives. See [docs/pii.md](docs/pii.md) for the design.
 
-With `AEGIS_PII_TOKEN_STYLE=format`, IBANs, card numbers, Steuer-IDs and phone numbers are instead
+With `AEGIS_PII_PSEUDONYM_STYLE=format`, IBANs, card numbers, Steuer-IDs and phone numbers are instead
 replaced by valid values of the same shape, encrypted with FF1 (NIST SP 800-38G, implemented from
 the specification and verified against the NIST test vectors):
 

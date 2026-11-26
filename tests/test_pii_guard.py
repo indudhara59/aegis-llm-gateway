@@ -260,7 +260,7 @@ def test_ner_without_dependencies_fails_clearly(monkeypatch: pytest.MonkeyPatch)
 
 @pytest.fixture
 def format_client(settings: Settings, provider: RecordingProvider) -> Iterator[TestClient]:
-    format_settings = settings.model_copy(update={"pii_token_style": "format"})
+    format_settings = settings.model_copy(update={"pii_pseudonym_style": "format"})
     with TestClient(create_app(format_settings, provider=provider)) as test_client:
         yield test_client
 

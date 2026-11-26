@@ -69,7 +69,7 @@ class PiiGuard:
         self._encoder = encoder
 
     @property
-    def token_style(self) -> str:
+    def pseudonym_style(self) -> str:
         return "format" if self._encoder is not None else "tag"
 
     def new_vault(self) -> PiiVault:
@@ -220,7 +220,7 @@ def build_pii_guard(settings: Settings) -> PiiGuard | None:
     )
     secret = _resolve_secret(settings)
     encoder = None
-    if settings.pii_token_style == "format":
+    if settings.pii_pseudonym_style == "format":
         encoder = FormatPreservingEncoder.from_secret(secret)
     return PiiGuard(
         detector,

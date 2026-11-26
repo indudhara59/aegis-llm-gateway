@@ -60,7 +60,7 @@ def create_app(settings: Settings | None = None, *, provider: Provider | None = 
                     "apps": len(apps.apps),
                     "pii_mode": resolved.pii_mode,
                     "pii_ner": resolved.pii_ner_enabled,
-                    "pii_token_style": resolved.pii_token_style,
+                    "pii_pseudonym_style": resolved.pii_pseudonym_style,
                 }
             },
         )

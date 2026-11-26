@@ -1,6 +1,6 @@
 # Format-preserving encryption (FF1)
 
-With `AEGIS_PII_TOKEN_STYLE=format`, structured identifiers are replaced by values of the same
+With `AEGIS_PII_PSEUDONYM_STYLE=format`, structured identifiers are replaced by values of the same
 shape instead of placeholder tags:
 
 ```

@@ -75,7 +75,7 @@ whether it completes one, then emits restored text. Plain `<` characters pass th
 | `AEGIS_PII_ENTITIES` | all | JSON list of entity types to mask |
 | `AEGIS_PII_MIN_SCORE` | `0.5` | minimum detection score |
 | `AEGIS_PII_NER_ENABLED` | `false` | add Presidio/spaCy NER |
-| `AEGIS_PII_TOKEN_STYLE` | `tag` | `format` uses FF1 pseudonyms for structured identifiers, see [fpe.md](fpe.md) |
+| `AEGIS_PII_PSEUDONYM_STYLE` | `tag` | `format` uses FF1 pseudonyms for structured identifiers, see [fpe.md](fpe.md) |
 | `AEGIS_PII_MODEL_INSTRUCTION` | `true` | add the placeholder instruction for the model |
 
 ## Limitations
