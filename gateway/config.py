@@ -50,6 +50,19 @@ class Settings(BaseSettings):
     pii_ner_enabled: bool = False
     pii_model_instruction: bool = True
 
+    # Input guard (prompt-injection detection). ``monitor`` only reports, ``block`` rejects
+    # requests whose risk reaches the block threshold.
+    input_guard_mode: Literal["off", "monitor", "block"] = "block"
+    input_guard_warn_threshold: float = Field(default=0.5, gt=0, lt=1)
+    input_guard_block_threshold: float = Field(default=0.85, gt=0, le=1)
+    input_guard_scope: Literal["latest_turn", "all"] = "latest_turn"
+    input_guard_classifier: Literal["none", "groq", "local"] = "none"
+    input_guard_classifier_model: str = "meta-llama/llama-prompt-guard-2-86m"
+    input_guard_local_model: str = "protectai/deberta-v3-base-prompt-injection-v2"
+    input_guard_judge: bool = False
+    input_guard_judge_model: str | None = None
+    input_guard_fail_closed: bool = False
+
     # HTTP hardening.
     max_request_bytes: int = Field(default=256_000, gt=0)
     cors_origins: list[str] = Field(default_factory=list)

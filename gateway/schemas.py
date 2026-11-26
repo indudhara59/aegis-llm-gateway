@@ -129,3 +129,32 @@ class PiiPreviewResponse(BaseModel):
     enabled: bool
     masked_text: str
     entities: list[PiiEntity]
+
+
+class GuardScanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=50_000)
+    role: Literal["user", "tool"] = "user"
+
+
+class GuardFinding(BaseModel):
+    source: str
+    id: str
+    category: str
+    score: float
+    message_index: int | None = None
+    role: str | None = None
+    excerpt: str | None = None
+    detail: str | None = None
+
+
+class GuardScanResponse(BaseModel):
+    enabled: bool
+    risk: float
+    label: str
+    action: str
+    findings: list[GuardFinding]
+    layers: list[str]
+    latency_ms: float
+    pii_masked: int

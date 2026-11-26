@@ -35,6 +35,11 @@ ner = [
     "spacy>=3.7,<4.0",
 ]
 
+classifier = [
+    "transformers>=4.44,<6.0",
+    "torch>=2.3",
+]
+
 [project.scripts]
 aegis-keygen = "gateway.cli:keygen"
 aegis-secret = "gateway.cli:secret"
@@ -60,7 +65,7 @@ plugins = ["pydantic.mypy"]
 files = ["gateway"]
 
 [[tool.mypy.overrides]]
-module = ["presidio_analyzer", "presidio_analyzer.*"]
+module = ["presidio_analyzer", "presidio_analyzer.*", "transformers", "transformers.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
