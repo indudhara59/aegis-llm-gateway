@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 import secrets
 
 from gateway.apps import API_KEY_PREFIX, hash_api_key
+from gateway.pii.fpe import FPE_ENTITY_TYPES, FormatPreservingEncoder
 
 
 def keygen(argv: list[str] | None = None) -> int:
@@ -35,4 +37,31 @@ def secret(argv: list[str] | None = None) -> int:
         prog="aegis-secret", description="Generate a 384-bit secret for AEGIS_PII_SECRET."
     ).parse_args(argv)
     print(secrets.token_urlsafe(48))
+    return 0
+
+
+def fpe(argv: list[str] | None = None) -> int:
+    """Encrypt or decrypt a format-preserving pseudonym with the gateway secret."""
+    parser = argparse.ArgumentParser(
+        prog="aegis-fpe",
+        description="Encrypt a value to its format-preserving pseudonym or decrypt a pseudonym. "
+        "Reads the secret from AEGIS_PII_SECRET.",
+    )
+    parser.add_argument("action", choices=["encrypt", "decrypt"])
+    parser.add_argument("entity_type", choices=sorted(FPE_ENTITY_TYPES))
+    parser.add_argument("value")
+    args = parser.parse_args(argv)
+
+    secret = os.environ.get("AEGIS_PII_SECRET", "")
+    if len(secret) < 32:
+        parser.error("AEGIS_PII_SECRET must be set to the gateway secret (at least 32 characters)")
+    encoder = FormatPreservingEncoder.from_secret(secret.encode("utf-8"))
+    try:
+        if args.action == "encrypt":
+            result = encoder.encrypt(args.entity_type, args.value)
+        else:
+            result = encoder.decrypt(args.entity_type, args.value)
+    except ValueError as exc:
+        parser.error(str(exc))
+    print(result)
     return 0

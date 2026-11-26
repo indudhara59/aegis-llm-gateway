@@ -13,6 +13,7 @@ from gateway.config import Settings
 from gateway.errors import ConfigurationError
 from gateway.pii.detector import PiiDetector
 from gateway.pii.entities import ALL_ENTITY_TYPES, Detection
+from gateway.pii.fpe import FormatPreservingEncoder
 from gateway.pii.pseudonymizer import Pseudonymizer
 from gateway.pii.recognizers import Recognizer, default_recognizers
 from gateway.pii.vault import PiiVault, StreamUnmasker
@@ -33,6 +34,11 @@ PII_MODEL_INSTRUCTION = (
     "repeat placeholders exactly as written, including the angle brackets, whenever you refer to "
     "them. Never try to guess the original values."
 )
+PII_FORMAT_INSTRUCTION = (
+    "Some identifiers in this conversation (IBANs, card numbers, tax IDs, phone numbers) are "
+    "pseudonymous stand-ins for the real values. Use them exactly as written and do not comment "
+    "on whether they look genuine."
+)
 MIN_SECRET_LENGTH = 32
 
 
@@ -50,14 +56,24 @@ class MaskedText:
 
 class PiiGuard:
     def __init__(
-        self, detector: PiiDetector, pseudonymizer: Pseudonymizer, *, model_instruction: bool
+        self,
+        detector: PiiDetector,
+        pseudonymizer: Pseudonymizer,
+        *,
+        model_instruction: bool,
+        encoder: FormatPreservingEncoder | None = None,
     ) -> None:
         self._detector = detector
         self._pseudonymizer = pseudonymizer
         self._model_instruction = model_instruction
+        self._encoder = encoder
+
+    @property
+    def token_style(self) -> str:
+        return "format" if self._encoder is not None else "tag"
 
     def new_vault(self) -> PiiVault:
-        return PiiVault(self._pseudonymizer)
+        return PiiVault(self._pseudonymizer, self._encoder)
 
     def mask_text(self, text: str, vault: PiiVault) -> MaskedText:
         detections = self._detector.detect(text)
@@ -81,8 +97,9 @@ class PiiGuard:
         """Return a copy of ``request`` with personal data replaced by tokens."""
         vault = self.new_vault()
         messages = [self._mask_message(message, vault) for message in request.messages]
-        if vault and self._model_instruction:
-            messages.insert(0, ChatMessage(role="system", content=PII_MODEL_INSTRUCTION))
+        instruction = model_instruction_for(vault) if self._model_instruction else None
+        if instruction is not None:
+            messages.insert(0, ChatMessage(role="system", content=instruction))
         return request.model_copy(update={"messages": messages}), vault
 
     def unmask_completion(self, completion: ChatCompletion, vault: PiiVault) -> ChatCompletion:
@@ -158,6 +175,16 @@ class PiiGuard:
         return message
 
 
+def model_instruction_for(vault: PiiVault) -> str | None:
+    """The system instruction describing the pseudonyms used in a request, if any."""
+    parts = []
+    if vault.has_tags:
+        parts.append(PII_MODEL_INSTRUCTION)
+    if vault.has_format_preserving:
+        parts.append(PII_FORMAT_INSTRUCTION)
+    return " ".join(parts) or None
+
+
 def _unmask_structure(value: Any, vault: PiiVault) -> Any:
     if isinstance(value, str):
         return vault.unmask(value)
@@ -191,10 +218,15 @@ def build_pii_guard(settings: Settings) -> PiiGuard | None:
         entity_types=settings.pii_entities or None,
         min_score=settings.pii_min_score,
     )
+    secret = _resolve_secret(settings)
+    encoder = None
+    if settings.pii_token_style == "format":
+        encoder = FormatPreservingEncoder.from_secret(secret)
     return PiiGuard(
         detector,
-        Pseudonymizer(_resolve_secret(settings)),
+        Pseudonymizer(secret),
         model_instruction=settings.pii_model_instruction,
+        encoder=encoder,
     )
 
 

@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # gateway and restores the originals in responses.
     pii_mode: Literal["off", "mask"] = "mask"
     pii_secret: SecretStr | None = None
+    # ``tag`` -> <IBAN_55e8a87c>; ``format`` -> a valid-looking IBAN of the same shape (FF1) for
+    # IBANs, card numbers, Steuer-IDs and phone numbers, tags for everything else.
+    pii_token_style: Literal["tag", "format"] = "tag"
     pii_entities: list[str] = Field(default_factory=list)
     pii_min_score: float = Field(default=0.5, ge=0, le=1)
     pii_ner_enabled: bool = False

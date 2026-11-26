@@ -19,18 +19,11 @@ import hashlib
 import hmac
 import re
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-
+from gateway.crypto.kdf import derive_key
 from gateway.pii import entities
 
 TOKEN_PATTERN = re.compile(r"<([A-Z][A-Z_]{1,40})_([0-9a-f]{8,16})>")
 _HKDF_INFO = b"aegis-llm-gateway/pii-token/v1"
-
-
-def derive_key(secret: bytes, info: bytes, length: int = 32) -> bytes:
-    """Derive an independent sub-key from the master secret (HKDF-SHA256, RFC 5869)."""
-    return HKDF(algorithm=hashes.SHA256(), length=length, salt=None, info=info).derive(secret)
 
 
 def normalize(entity_type: str, value: str) -> str:
